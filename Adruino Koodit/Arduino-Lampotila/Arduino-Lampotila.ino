@@ -21,16 +21,7 @@ PubSubClient client(server, Port, ethClient);
 // LCD setup (parallel mode)
 // rs=9, enable=8, d4=7, d5=6, d6=5, d7=4
 LiquidCrystal lcd(9, 8, 7, 6, 5, 4);
-byte heart[8] = {
-  0B00000,
-  0B01010,
-  0B11111,
-  0B11111,
-  0B11111,
-  0B01110,
-  0B00100,
-  0B00000,
-};
+
 
 // Keypad 4x4 on pins D2..D9
 const byte ROWS = 4, COLS = 4;
@@ -66,7 +57,6 @@ float maxAnalog = -1000.0;
 float minFreq = 1000.0;
 float maxFreq = -1000.0;
 bool showMin = true;
-bool statsInitialized = false;
 
 
 
@@ -103,8 +93,8 @@ void send_MQTT_message(float tempAvg, float humidAvg) {
     // floatToString
     dtostrf(tempAvg, 4, 2, outStr1);
     dtostrf(humidAvg, 4, 2, outStr2);
-    sprintf(msgBuf, "IOTJS={\"S_name\":\"ENERGY_lampo\",\"S_value\":%s}", outStr1);
-    sprintf(msgBuf, "IOTJS={\"S_name\":\"ENERGY_kosteus\",\"S_value\":%s }", outStr2);
+    sprintf(msgBuf, "IOTJS={\"S_name1\":\"ENERGY_lampo\",\"S_value\":%s}", outStr1);
+    sprintf(msgBuf, "IOTJS={\"S_name2\":\"ENERGY_kosteus\",\"S_value\":%s }", outStr2);
 
     // sprintf(msgBuf, "IOTJS={\"S_name\":\"ENERGY_lampo\",\"S_value\":%s,"
     //   "\"S_name\":\"ENERGY_kosteus\",\"S_value\":%s}",
@@ -190,11 +180,11 @@ void showStats() {
 void customAction(float lampo, float kosteus) {
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("Temp: ");
+  lcd.print("Lampo: ");
   lcd.print(lampo, 1);
   lcd.print("C");
   lcd.setCursor(0, 1);
-  lcd.print("Humid: ");
+  lcd.print("Kosteus: ");
   lcd.print(kosteus, 1);
   lcd.print("%");
 }
@@ -208,35 +198,7 @@ void handleKey(char key) {
   }
 }
 
-// Setup
-void setup() {
-  Serial.begin(9600);
-
-
-  // LCD-tervetelu
-  lcd.begin(20, 4);
-  lcd.createChar(3, heart);
-  lcd.print(" Me \x03 sulari ");
-  lcd.setCursor(1, 1);
-  lcd.print(" Team ENER-gy ");
-  lcd.setCursor(2, 2);
-  lcd.print(" Eino, Nio, Eemeli ");
-  delay(2000);
-  lcd.clear();
-
-  fetch_IP();
-  delay(2000);
-
-  // Signaali-ISR ja ajastin
-  pinMode(signalPin, INPUT);
-  attachInterrupt(digitalPinToInterrupt(signalPin), countPulse, RISING);
-  Timer1.initialize(1000000);
-  Timer1.attachInterrupt(timerIsr);
-}
-
-// Main loop
-void loop() {
-  client.loop();
+void processLoop() {
 
   const int raw = analogRead(analogPin);
   const float voltage = rawToVoltage(vRef, raw);
@@ -308,6 +270,37 @@ void loop() {
 
   }
   delay(1000); 
+  
+}
+
+// Setup
+void setup() {
+  Serial.begin(9600);
 
 
+  // LCD-tervetelu
+  lcd.begin(20, 4);
+  lcd.setCursor(1, 1);
+  lcd.print(" Team ENER-gy ");
+  lcd.setCursor(2, 2);
+  lcd.print(" Eino, Nio, Eemeli ");
+  delay(2000);
+  lcd.clear();
+
+  fetch_IP();
+  delay(2000);
+
+  // Signaali-ISR ja ajastin
+  pinMode(signalPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(signalPin), countPulse, RISING);
+  Timer1.initialize(1000000);
+  Timer1.attachInterrupt(timerIsr);
+}
+
+// Main loop
+void loop() {
+  // Pidä MQTT-yhteys elossa
+  client.loop();
+  // Suorita koko päälogiikka omassa aliohjelmassaan
+  processLoop();
 }
